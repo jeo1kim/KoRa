@@ -1,6 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:musicplayer/musichome.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
+import 'package:musicplayer/database/radio_data.dart';
+import 'package:musicplayer/database/list.dart';
 
 void main() => runApp(new MyApp());
 
@@ -18,6 +23,7 @@ class _mainState extends State<MyApp> {
   void initState() {
     super.initState();
     getTheme();
+    getChannels();
   }
 
   @override
@@ -27,7 +33,33 @@ class _mainState extends State<MyApp> {
       title: "Music player",
       debugShowCheckedModeBanner: false,
       home: isLoading ? new Container() : new MusicHome(),
+
     );
+  }
+
+  getChannels() {
+//    String data = await DefaultAssetBundle.of(context).loadString("assets/data.json");
+//    final jsonResult = json.decode(data);
+    var build = new FutureBuilder(
+        future: DefaultAssetBundle.of(context)
+            .loadString('assets/country.json'),
+        builder: (context, snapshot) {
+          List<RadioStation> stations =
+          parseJosn(snapshot.data.toString());
+          return !stations.isEmpty
+              ? new StationList(radioStation: stations)
+              : new Center(child: new CircularProgressIndicator());
+        });
+
+  }
+
+  List<RadioStation> parseJosn(String response) {
+    if(response==null){
+      return [];
+    }
+    final parsed =
+    json.decode(response.toString()).cast<Map<String, dynamic>>();
+    return parsed.map<Radio>((json) => new RadioStation.fromJson(json)).toList();
   }
 
   getTheme() async {
@@ -46,6 +78,8 @@ class _mainState extends State<MyApp> {
     });
   }
 
+
+
   ThemeData darktheme = new ThemeData(
     brightness: Brightness.dark,
     accentColor: Colors.grey[800],
@@ -57,6 +91,10 @@ class _mainState extends State<MyApp> {
       inactiveTickMarkColor: Colors.black,
       overlayColor: Colors.black12,
       thumbColor: Colors.purple,
+      trackHeight: 10,
+      overlayShape: new RoundSliderOverlayShape(),
+      tickMarkShape: new RoundSliderTickMarkShape(),
+      trackShape: new RectangularSliderTrackShape(),
       valueIndicatorColor: Colors.deepPurpleAccent,
       thumbShape: new RoundSliderThumbShape(),
       disabledActiveTrackColor: Colors.red,

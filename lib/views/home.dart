@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
@@ -9,10 +10,14 @@ import 'package:musicplayer/pages/list_songs.dart';
 import 'package:musicplayer/pages/material_search.dart';
 import 'package:musicplayer/pages/now_playing.dart';
 import 'package:musicplayer/util/lastplay.dart';
+import 'package:musicplayer/database/radio_data.dart';
+import 'package:musicplayer/database/list.dart';
 
 class Home extends StatefulWidget {
   DatabaseClient db;
+
   Home(this.db);
+
   @override
   State<StatefulWidget> createState() {
     return new stateHome();
@@ -23,6 +28,7 @@ class stateHome extends State<Home> {
   List<Song> albums, recents, songs;
   bool isLoading = true;
   Song last;
+
   @override
   void initState() {
     // TODO: implement initState
@@ -34,6 +40,12 @@ class stateHome extends State<Home> {
     return song.albumArt == null
         ? null
         : new File.fromUri(Uri.parse(song.albumArt));
+  }
+
+  dynamic getImage2(RadioStation station) {
+    return station.url == null
+        ? null
+        : station.url;
   }
 
   void init() async {
@@ -62,8 +74,7 @@ class stateHome extends State<Home> {
             new IconButton(
                 icon: Icon(Icons.search),
                 onPressed: () {
-                  Navigator
-                      .of(context)
+                  Navigator.of(context)
                       .push(new MaterialPageRoute(builder: (context) {
                     return new SearchSong(widget.db, songs);
                   }));
@@ -174,6 +185,19 @@ class stateHome extends State<Home> {
                   new Divider(),
                   new Padding(
                     padding:
+                    const EdgeInsets.only(left: 8.0, top: 8.0, bottom: 8.0),
+                    child: new Text(
+                      "Favorite Stations!",
+                      style: new TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20.0,
+                      ),
+                    ),
+                  ),
+                  stations(),
+                  new Divider(),
+                  new Padding(
+                    padding:
                         const EdgeInsets.only(left: 8.0, top: 8.0, bottom: 8.0),
                     child: new Text(
                       "Your recents!",
@@ -206,6 +230,146 @@ class stateHome extends State<Home> {
         ),
       ],
     );
+  }
+
+  List<RadioStation> parseJson(String response) {
+    List<RadioStation> products = new List<RadioStation>();
+    List<dynamic> jsonParsed = json.decode(response);
+    for (int i = 0; i < jsonParsed.length; i++) {
+      products.add(new RadioStation.fromJson(jsonParsed[i]));
+    }
+    return products;
+  }
+
+  List<RadioStation> parseJson2(String response) {
+    if (response == null) {
+      return [];
+    }
+    final parsed =
+        json.decode(response.toString()).cast<Map<String, dynamic>>();
+    return parsed
+        .map<Radio>((json) => new RadioStation.fromJson(json))
+        .toList();
+  }
+
+  sample() {
+    new Container(
+      child: new Center(
+        child: new FutureBuilder(
+            future: DefaultAssetBundle.of(context).loadString('images/southkorea.json'),
+            builder: (context, snapshot) {
+              List<RadioStation> stations =
+              parseJson(snapshot.data.toString());
+              return stations.isNotEmpty
+                  ? new StationList(radioStation: stations)
+                  : new Center(
+                  child: new CircularProgressIndicator());
+            }),
+      ),
+    );
+  }
+
+  Widget stations() {
+
+    return new Container(
+      //aspectRatio: 16/15,
+      height: 200.0,
+      child: new FutureBuilder(
+        future: DefaultAssetBundle.of(context).loadString('images/southkorea.json'),
+          builder: (context, snapshot) {
+            if(snapshot.hasData) {
+              if(snapshot.data != null) {
+                List<RadioStation> stations =
+                parseJson(snapshot.data.toString());
+
+                return new Column(
+                  children: <Widget>[
+                    new Expanded(child: new ListView.builder(
+                      itemCount: stations.length,
+                      scrollDirection: Axis.horizontal,
+                      itemBuilder: (context, i) =>
+                      new Card(
+                        child: new InkResponse(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              SizedBox(
+                                  child: new Hero(
+                                    tag: stations[i].name,
+                                    child: getImage2(stations[i]) != null
+                                        ? new Image.network(
+                                      stations[i].logo,
+                                      height: 120.0,
+                                      width: 200.0,
+                                      fit: BoxFit.fitHeight,
+                                    )
+                                        : new Image.asset(
+                                      "images/back.jpg",
+                                      height: 120.0,
+                                      width: 200.0,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  )),
+                              SizedBox(
+                                width: 200.0,
+                                child: Padding(
+                                  // padding: EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 8.0),
+                                  padding: EdgeInsets.fromLTRB(4.0, 8.0, 0.0, 0.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      Text(
+                                        stations[i].name,
+                                        style: new TextStyle(fontSize: 18.0),
+                                        maxLines: 1,
+                                      ),
+                                      SizedBox(height: 8.0),
+                                      _category(stations[i])
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          onTap: () {
+                            Navigator.of(context)
+                                .push(new MaterialPageRoute(builder: (context) {
+                              return new CardDetail(widget.db, albums[i], 0);
+                            }));
+                          },
+                        ),
+                      ),
+                    )
+                    )
+                  ],
+                );
+              }
+            } else {
+              return new CircularProgressIndicator();
+            }
+
+          }
+          ),
+    );
+
+  }
+
+  Widget _category(RadioStation station) {
+    if(station.category != null) {
+      return Text(
+        station.category,
+        maxLines: 1,
+        style:
+        TextStyle(fontSize: 14.0, color: Colors.grey),
+      );
+    } else {
+      return Text(
+        "Casual",
+        maxLines: 1,
+        style:
+        TextStyle(fontSize: 14.0, color: Colors.grey),
+      );
+    }
   }
 
   Widget randomW() {
@@ -264,8 +428,7 @@ class stateHome extends State<Home> {
                   ],
                 ),
                 onTap: () {
-                  Navigator
-                      .of(context)
+                  Navigator.of(context)
                       .push(new MaterialPageRoute(builder: (context) {
                     return new CardDetail(widget.db, albums[i], 0);
                   }));
@@ -334,8 +497,7 @@ class stateHome extends State<Home> {
                 ),
                 onTap: () {
                   MyQueue.songs = recents;
-                  Navigator
-                      .of(context)
+                  Navigator.of(context)
                       .push(new MaterialPageRoute(builder: (context) {
                     return new NowPlaying(widget.db, recents, i, 0);
                   }));

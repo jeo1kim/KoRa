@@ -81,6 +81,8 @@ class _musicState extends State<MusicHome> {
         themeLoading = false;
       });
     }
+    
+
   }
 
   void initPlayer() async {
